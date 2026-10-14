@@ -4,6 +4,8 @@ import React, { useMemo } from "react";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { useCluster } from "@/providers/ClusterProvider";
 
+import { DemoWalletAdapter } from "@/lib/demo-wallet";
+
 export function SolanaWalletProvider({
     children,
     autoConnect = true,
@@ -13,8 +15,9 @@ export function SolanaWalletProvider({
 }) {
     const { endpoint } = useCluster();
 
-    // Standard wallets (Phantom, Backpack, Solflare) are auto-detected via Wallet Standard
-    const wallets = useMemo(() => [], []);
+    // Standard wallets (Phantom, Backpack, Solflare) are auto-detected via Wallet Standard.
+    // DemoWalletAdapter provides instant, reliable testing without browser extensions.
+    const wallets = useMemo(() => [new DemoWalletAdapter()], []);
 
     return (
         <ConnectionProvider endpoint={endpoint}>

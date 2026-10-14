@@ -14,16 +14,18 @@ import {
   KeyRound,
   Copy,
   Check,
+  Zap,
 } from "lucide-react";
 import { WalletModal } from "@/components/vps/WalletModal";
 import { fetchGatewayChallenge, submitGatewaySignature, GatewayChallenge, bytesToBase64 } from "@/lib/api";
 import { shortenAddress } from "@/lib/utils";
+import { DEMO_WALLET_NAME } from "@/lib/demo-wallet";
 
 function AuthChallengeContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
 
-  const { publicKey, connected, signMessage } = useWallet();
+  const { publicKey, connected, signMessage, select, connect } = useWallet();
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
 
   const [challenge, setChallenge] = useState<GatewayChallenge | null>(null);
@@ -276,6 +278,17 @@ function AuthChallengeContent() {
                   >
                     <KeyRound className="w-4 h-4" />
                     Connect Wallet to Sign
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      select(DEMO_WALLET_NAME);
+                      await connect();
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl font-medium text-xs text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    Connect Demo Test Wallet (1-Click)
                   </button>
                 </div>
               ) : (

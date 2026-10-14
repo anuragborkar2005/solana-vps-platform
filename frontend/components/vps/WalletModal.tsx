@@ -5,6 +5,8 @@ import { Wallet, X, AlertCircle, ExternalLink } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletReadyState } from "@solana/wallet-adapter-base";
 import { WalletPhantom, WalletSolflare, WalletBackpack } from "@web3icons/react";
+import { Zap } from "lucide-react";
+import { DEMO_WALLET_NAME, DEMO_WALLET_PUBKEY } from "@/lib/demo-wallet";
 
 interface WalletModalProps {
     isOpen: boolean;
@@ -18,9 +20,21 @@ interface WalletOption {
     sublabel: string;
     IconComponent: React.ComponentType<{ className?: string; size?: number | string }>;
     installUrl: string;
+    badge?: string;
+    isDemo?: boolean;
 }
 
 const WALLET_OPTIONS: WalletOption[] = [
+    {
+        id: "demo",
+        adapterName: DEMO_WALLET_NAME,
+        label: "Demo Validator Wallet",
+        sublabel: `${DEMO_WALLET_PUBKEY.slice(0, 6)}...${DEMO_WALLET_PUBKEY.slice(-4)} • 5.42 SOL (Instant)`,
+        IconComponent: Zap,
+        installUrl: "",
+        badge: "Recommended for Testing",
+        isDemo: true,
+    },
     {
         id: "phantom",
         adapterName: "Phantom",
@@ -55,6 +69,19 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
 
     const handleSelectWallet = async (option: WalletOption) => {
         setMissingWallet(null);
+
+        // Immediate 1-click connection for Demo Wallet (no extension required)
+        if (option.isDemo) {
+            try {
+                select(DEMO_WALLET_NAME);
+                await connect();
+                onClose();
+            } catch (err) {
+                console.error("Failed to connect demo wallet:", err);
+                onClose();
+            }
+            return;
+        }
 
         // Find adapter in wallet-adapter list
         const targetWallet = wallets.find(
@@ -137,7 +164,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                                 {missingWallet.label} is not installed
                             </p>
                             <p className="text-zinc-400 text-[11px]">
-                                Install the browser extension to connect your wallet.
+                                Install the browser extension or use the Demo Validator Wallet above.
                             </p>
                             <a
                                 href={missingWallet.installUrl}
@@ -160,22 +187,51 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                                 key={option.id}
                                 onClick={() => handleSelectWallet(option)}
                                 disabled={connecting}
-                                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-purple-500/50 transition group cursor-pointer disabled:opacity-50"
+                                className={`w-full flex items-center justify-between p-3.5 rounded-xl transition group cursor-pointer disabled:opacity-50 text-left ${
+                                    option.isDemo
+                                        ? "bg-gradient-to-r from-emerald-950/30 to-purple-950/30 border border-emerald-500/40 hover:border-emerald-400 ring-1 ring-emerald-500/20"
+                                        : "bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-purple-500/50"
+                                }`}
                             >
                                 <div className="flex items-center space-x-3">
-                                    <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center p-1.5 shadow-xs">
+                                    <div
+                                        className={`w-9 h-9 rounded-xl border flex items-center justify-center p-1.5 shadow-xs shrink-0 ${
+                                            option.isDemo
+                                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                                                : "bg-zinc-900 border-zinc-800"
+                                        }`}
+                                    >
                                         <Icon size={22} className="shrink-0" />
                                     </div>
                                     <div className="text-left">
-                                        <div className="text-sm font-semibold text-white group-hover:text-purple-300">
-                                            {option.label}
+                                        <div className="flex items-center space-x-2">
+                                            <span
+                                                className={`text-sm font-semibold ${
+                                                    option.isDemo
+                                                        ? "text-emerald-300 group-hover:text-emerald-200"
+                                                        : "text-white group-hover:text-purple-300"
+                                                }`}
+                                            >
+                                                {option.label}
+                                            </span>
+                                            {option.badge && (
+                                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">
+                                                    {option.badge}
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="text-[11px] text-zinc-500 font-mono">
                                             {option.sublabel}
                                         </div>
                                     </div>
                                 </div>
-                                <span className="text-xs font-mono text-zinc-400 group-hover:text-white">
+                                <span
+                                    className={`text-xs font-mono shrink-0 ml-2 ${
+                                        option.isDemo
+                                            ? "text-emerald-400 font-semibold group-hover:translate-x-0.5 transition-transform"
+                                            : "text-zinc-400 group-hover:text-white"
+                                    }`}
+                                >
                                     Connect &rarr;
                                 </span>
                             </button>

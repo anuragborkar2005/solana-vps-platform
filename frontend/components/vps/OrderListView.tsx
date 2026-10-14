@@ -5,6 +5,7 @@ import { Plus, Server, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VPSOrder, OrderStatus } from "@/types/vps";
 import { lamportsToSol, shortenAddress } from "@/lib/mock-api";
+import { DEMO_WALLET_PUBKEY } from "@/lib/demo-wallet";
 
 interface OrderListViewProps {
   orders: VPSOrder[];
@@ -81,7 +82,7 @@ export function OrderListView({
         <div className="text-xs text-zinc-400 font-mono">
           Owner:{" "}
           <span className="text-zinc-200">
-            {shortenAddress(walletAddress || "8xP3kM9L71z4QvB9mK1xY2qT4L8z9QvB9mK1xY2q")}
+            {shortenAddress(walletAddress || DEMO_WALLET_PUBKEY)}
           </span>
         </div>
       </div>

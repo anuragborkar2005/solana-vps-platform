@@ -22,8 +22,9 @@ import { shortenAddress } from "@/lib/utils";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useCluster } from "@/providers/ClusterProvider";
 import { useWalletBalance } from "@/hooks/useWalletBalance";
-import { createOrder, fetchOrders, verifyPayment } from "@/lib/api";
+import { createOrder, fetchOrders, verifyPayment, createRenewalAttempt } from "@/lib/api";
 import { INITIAL_ORDERS } from "@/lib/mock-api";
+import { DEMO_WALLET_NAME, DEMO_WALLET_PUBKEY } from "@/lib/demo-wallet";
 
 export default function Home() {
     const [orders, setOrders] = useState<VPSOrder[]>([]);
@@ -35,7 +36,7 @@ export default function Home() {
     >("landing");
 
     // Real Solana Wallet Adapter hooks
-    const { publicKey, connected } = useWallet();
+    const { publicKey, connected, select, connect } = useWallet();
     const { cluster } = useCluster();
     const { balanceSol } = useWalletBalance();
 
@@ -203,10 +204,15 @@ export default function Home() {
     );
 
     // Execute on-chain payment flow simulation
-    const handleExecutePayment = async () => {
+    const handleExecutePayment = async (customPaymentId?: string) => {
         if (!connected || !publicKey) {
-            setIsWalletModalOpen(true);
-            return;
+            try {
+                select(DEMO_WALLET_NAME);
+                await connect();
+            } catch {
+                setIsWalletModalOpen(true);
+                return;
+            }
         }
 
         addToast(`Initiating Solana payment on ${cluster}...`, "info");
@@ -224,10 +230,11 @@ export default function Home() {
             );
 
             // Call real backend payment endpoint with tracked PaymentAttempt ID
+            const paymentIdToUse = customPaymentId || currentOrder?.active_payment_id;
             const res = await verifyPayment(
                 currentOrderId,
                 txHash,
-                currentOrder?.active_payment_id,
+                paymentIdToUse,
             );
 
             // Update local state with real backend response
@@ -288,12 +295,18 @@ export default function Home() {
     };
 
     // Lease Renewal
-    const handleRenewLease = () => {
-        addToast(
-            "Renewal extension invoice generated (0.05 SOL for +7 days)",
-            "success",
-        );
-        handleExecutePayment();
+    const handleRenewLease = async () => {
+        try {
+            const attempt = await createRenewalAttempt(currentOrderId);
+            addToast(
+                "Renewal extension invoice generated (0.05 SOL for +7 days)",
+                "success",
+            );
+            await handleExecutePayment(attempt.payment_id);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            addToast(`Failed to generate renewal: ${msg}`, "error");
+        }
     };
 
     // Create new order
@@ -303,15 +316,21 @@ export default function Home() {
         periodDays: number;
         priceLamports: string;
     }) => {
-        if (!activeWalletAddress) {
-            setIsWalletModalOpen(true);
-            return;
+        let walletToUse = activeWalletAddress;
+        if (!walletToUse) {
+            try {
+                select(DEMO_WALLET_NAME);
+                await connect();
+                walletToUse = DEMO_WALLET_PUBKEY;
+            } catch {
+                walletToUse = DEMO_WALLET_PUBKEY;
+            }
         }
 
         try {
             const newOrder = await createOrder({
                 name: data.name,
-                owner_wallet: activeWalletAddress,
+                owner_wallet: walletToUse,
                 region: data.region,
                 period_days: data.periodDays,
                 price_lamports: data.priceLamports,
@@ -350,6 +369,19 @@ export default function Home() {
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
+    const handleConnectDemoWallet = async () => {
+        try {
+            select(DEMO_WALLET_NAME);
+            await connect();
+            addToast(
+                `Connected to Demo Validator Wallet: ${shortenAddress(DEMO_WALLET_PUBKEY)}`,
+                "success",
+            );
+        } catch {
+            setIsWalletModalOpen(true);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col selection:bg-purple-600/30 selection:text-emerald-300">
             {/* Top App Navigation */}
@@ -371,7 +403,7 @@ export default function Home() {
                         orders={orders}
                         walletAddress={activeWalletAddress}
                         onOpenWalletModal={() => setIsWalletModalOpen(true)}
-                        onConnectDemoWallet={() => setIsWalletModalOpen(true)}
+                        onConnectDemoWallet={handleConnectDemoWallet}
                         onOpenCreateModal={() => setIsCreateModalOpen(true)}
                         onNavigateToOrderList={() =>
                             setActiveView("order-list")
@@ -435,8 +467,7 @@ export default function Home() {
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
                 walletAddress={
-                    activeWalletAddress ||
-                    "8xP3kM9L71z4QvB9mK1xY2qT4L8z9QvB9mK1xY2q"
+                    activeWalletAddress || DEMO_WALLET_PUBKEY
                 }
                 initialPlanId={selectedPlanConfig.planId}
                 initialPeriodDays={selectedPlanConfig.periodDays}

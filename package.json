@@ -5,10 +5,13 @@
   "scripts": {
     "test": "npm run test:backend && npm run test:ssh && npm run test:frontend",
     "test:backend": "cargo test --manifest-path backend/Cargo.toml",
-    "test:ssh": "cargo test --manifest-path ssh/Cargo.toml && (cd ssh && npm test)",
-    "test:frontend": "cd frontend && bun run build",
+    "test:ssh": "cargo test --manifest-path ssh/Cargo.toml && cargo build --manifest-path ssh/Cargo.toml --bin test-services && (cd ssh && npm test)",
+    "test:frontend": "cd frontend && (bun run build || npm run build)",
     "dev:backend": "cargo run --manifest-path backend/Cargo.toml",
-    "dev:frontend": "cd frontend && bun run dev",
-    "build:all": "cargo build --manifest-path backend/Cargo.toml && cargo build --manifest-path ssh/Cargo.toml && (cd frontend && bun run build)"
+    "dev:frontend": "cd frontend && (bun run dev || npm run dev)",
+    "build:all": "cargo build --manifest-path backend/Cargo.toml && cargo build --manifest-path ssh/Cargo.toml && (cd frontend && (bun run build || npm run build))",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "start": "docker compose up"
   }
 }

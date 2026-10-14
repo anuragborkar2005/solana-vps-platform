@@ -4,23 +4,49 @@ A proof of concept for paying for VPS access with SOL and signing in over SSH wi
 
 Users purchase or renew access, delegate access to other wallets, and sign SSH login challenges with Phantom or Solflare.
 
-## Development
+## Quick Start (Docker)
 
-Start with [Architecture.md](Architecture.md) for the system design and implementation responsibilities. Each folder has a README describing its scope.
+To run the entire platform with zero local configuration issues:
 
-| Folder | Purpose |
-| --- | --- |
-| [frontend/](frontend/) | Wallet-connected portal |
-| [backend/](backend/) | Orders, payments, authentication gateway, and provisioning coordination |
-| [programs/](programs/) | Solana billing and access program |
-| [ssh/](ssh/) | OpenSSH PAM module and VPS authentication daemon |
-| [shared/](shared/) | Interfaces and integration fixtures |
-| [infra/](infra/) | Docker and Linux VM setup |
-| [tests/](tests/) | Integration and end-to-end scenarios |
+```bash
+docker compose up --build
+```
 
-**Date:** 2026-10-11  
-**Last Updated:** 2026-10-11  
-**Status:** Initial scaffold. Implementation and run commands will be added as components are built.
+- **Frontend Portal:** [http://localhost:3000](http://localhost:3000)
+- **Backend API:** [http://localhost:8080](http://localhost:8080)
+- **Storage:** Orders and payments persist across container restarts in the `solana-vps-data` SQLite volume (`/data/solana-vps.sqlite`).
+
+## Running Locally
+
+If you prefer to run services natively on your machine:
+
+```bash
+# 1. Install dependencies
+npm run build:all
+
+# 2. Run test suites across backend, ssh PAM/daemon, and frontend
+npm test
+
+# 3. Start backend service (Axum on port 8080)
+npm run dev:backend
+
+# 4. In a separate terminal, start frontend portal (Next.js on port 3000)
+npm run dev:frontend
+```
+
+## Testing Features & UI Buttons
+
+For quick review and testing without needing browser wallet extensions (Phantom/Solflare):
+
+1. Click **"Connect Wallet"** in the top navigation or hero section.
+2. Select **"⚡ Demo Validator Wallet"** (`2iXtA8...D2pQ` with 5.42 SOL) for instant 1-click test access.
+3. Test all platform operations:
+   - **Deploy VPS Instance:** Create a new order with custom hostname, datacenter region, and lease period.
+   - **Pay Now:** Confirm on-chain payment and trigger instant provisioning.
+   - **Renew Lease:** Generate extension invoices and execute on-chain renewal payments.
+   - **SSH Gateway Challenge:** Fetch daemon challenge, sign using the Ed25519 demo keypair, and grant PAM session access.
+   - **Delegates:** Add and revoke secondary Solana wallet access grants.
+   - **Live Web SSH Console:** Test terminal interactions directly in the browser.
 
 ## Documentation and History
 
