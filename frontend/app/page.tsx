@@ -419,20 +419,32 @@ export default function Home() {
                     />
                 )}
 
-                {activeView === "order-detail" && currentOrder && (
-                    <OrderDetailView
-                        order={currentOrder}
-                        isPolling={isPolling}
-                        provisionProgress={provisionProgress}
-                        provisionStepText={provisionStepText}
-                        onBack={() => setActiveView("order-list")}
-                        onExecutePayment={handleExecutePayment}
-                        onRetryProvision={handleRetryProvision}
-                        onSimulateState={handleSimulateState}
-                        onRenewLease={handleRenewLease}
-                        onCopy={handleCopy}
-                        onOpenExplorer={handleOpenExplorer}
-                    />
+                {activeView === "order-detail" && (
+                    currentOrder ? (
+                        <OrderDetailView
+                            order={currentOrder}
+                            isPolling={isPolling}
+                            provisionProgress={provisionProgress}
+                            provisionStepText={provisionStepText}
+                            onBack={() => setActiveView("order-list")}
+                            onExecutePayment={handleExecutePayment}
+                            onRetryProvision={handleRetryProvision}
+                            onSimulateState={handleSimulateState}
+                            onRenewLease={handleRenewLease}
+                            onCopy={handleCopy}
+                            onOpenExplorer={handleOpenExplorer}
+                        />
+                    ) : (
+                        <div className="py-20 text-center space-y-4">
+                            <p className="text-zinc-400 text-sm font-mono">No order selected or found for this wallet.</p>
+                            <button
+                                onClick={() => setActiveView("landing")}
+                                className="bg-emerald-400 hover:bg-emerald-300 text-zinc-950 font-bold text-xs px-4 py-2 rounded-xl transition cursor-pointer"
+                            >
+                                Back to Home
+                            </button>
+                        </div>
+                    )
                 )}
 
                 {activeView === "order-list" && (

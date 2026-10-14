@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Wallet, X, AlertCircle, ExternalLink } from "lucide-react";
+import { Wallet, X, AlertCircle, ExternalLink, Zap, Loader2 } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletReadyState } from "@solana/wallet-adapter-base";
 import { WalletPhantom, WalletSolflare, WalletBackpack } from "@web3icons/react";
-import { Zap } from "lucide-react";
 import { DEMO_WALLET_NAME, DEMO_WALLET_PUBKEY } from "@/lib/demo-wallet";
 
 interface WalletModalProps {
@@ -62,72 +61,94 @@ const WALLET_OPTIONS: WalletOption[] = [
 ];
 
 export function WalletModal({ isOpen, onClose }: WalletModalProps) {
-    const { wallets, select, connect, connecting } = useWallet();
+    const { wallets, select } = useWallet();
     const [missingWallet, setMissingWallet] = useState<WalletOption | null>(null);
+    const [connectionError, setConnectionError] = useState<string | null>(null);
+    const [connectingId, setConnectingId] = useState<string | null>(null);
 
     if (!isOpen) return null;
 
     const handleSelectWallet = async (option: WalletOption) => {
         setMissingWallet(null);
+        setConnectionError(null);
+        setConnectingId(option.id);
 
-        // Immediate 1-click connection for Demo Wallet (no extension required)
-        if (option.isDemo) {
-            try {
+        try {
+            // Immediate 1-click connection for Demo Wallet (no extension required)
+            if (option.isDemo) {
                 select(DEMO_WALLET_NAME);
-                await connect();
-                onClose();
-            } catch (err) {
-                console.error("Failed to connect demo wallet:", err);
-                onClose();
-            }
-            return;
-        }
-
-        // Find adapter in wallet-adapter list
-        const targetWallet = wallets.find(
-            (w) => w.adapter.name.toLowerCase() === option.adapterName.toLowerCase()
-        );
-
-        if (targetWallet) {
-            // Check if installed/loadable
-            if (
-                targetWallet.readyState === WalletReadyState.Installed ||
-                targetWallet.readyState === WalletReadyState.Loadable
-            ) {
-                try {
-                    select(targetWallet.adapter.name);
-                    await connect();
-                    onClose();
-                    return;
-                } catch (err) {
-                    console.error("Failed to connect wallet:", err);
-                    onClose();
-                    return;
+                const demoWallet = wallets.find((w) => w.adapter.name === DEMO_WALLET_NAME);
+                if (demoWallet) {
+                    await demoWallet.adapter.connect();
                 }
+                onClose();
+                return;
             }
-        }
 
-        // Check if window object has injected standard wallet directly
-        if (typeof window !== "undefined") {
-            const hasPhantom = !!(window as unknown as { phantom?: { solana?: unknown } }).phantom?.solana;
-            const hasSolflare = !!(window as unknown as { solflare?: unknown }).solflare;
-            const hasBackpack = !!(window as unknown as { backpack?: unknown }).backpack;
+            // Find adapter in wallet-adapter list with case-insensitive and substring matching
+            const targetWallet = wallets.find((w) => {
+                const name = w.adapter.name.toLowerCase();
+                const optId = option.id.toLowerCase();
+                const optAdapter = option.adapterName.toLowerCase();
+                return name === optAdapter || name.includes(optId);
+            });
 
-            const isPresent =
+            // Check if window object has injected standard wallet directly
+            const win = typeof window !== "undefined" ? (window as unknown as Record<string, any>) : null;
+            const hasPhantom = !!win?.phantom?.solana?.isPhantom || !!win?.solana?.isPhantom;
+            const hasSolflare = !!win?.solflare?.isSolflare || !!win?.solflare;
+            const hasBackpack = !!win?.backpack?.isBackpack || !!win?.backpack;
+
+            const isWindowInjected =
                 (option.id === "phantom" && hasPhantom) ||
                 (option.id === "solflare" && hasSolflare) ||
                 (option.id === "backpack" && hasBackpack);
 
-            if (isPresent && targetWallet) {
+            if (targetWallet) {
+                // Select in context and directly trigger adapter connect
+                // Calling targetWallet.adapter.connect() directly prompts the extension popup
+                // without waiting for React's asynchronous wallet state update
                 select(targetWallet.adapter.name);
-                await connect();
+                await targetWallet.adapter.connect();
                 onClose();
                 return;
             }
-        }
 
-        // Extension not detected, show fallback install prompt
-        setMissingWallet(option);
+            // Fallback: Injected provider on window before Wallet Standard adapter sync
+            if (isWindowInjected) {
+                const provider =
+                    option.id === "phantom"
+                        ? win?.phantom?.solana || win?.solana
+                        : option.id === "solflare"
+                        ? win?.solflare
+                        : win?.backpack || win?.solana;
+
+                if (provider && typeof provider.connect === "function") {
+                    await provider.connect();
+                    const freshWallet = wallets.find((w) =>
+                        w.adapter.name.toLowerCase().includes(option.id)
+                    );
+                    if (freshWallet) {
+                        select(freshWallet.adapter.name);
+                    }
+                    onClose();
+                    return;
+                }
+            }
+
+            // Extension truly not detected, show fallback install prompt
+            setMissingWallet(option);
+        } catch (err: unknown) {
+            console.error("Wallet connection failed:", err);
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes("User rejected") || msg.includes("rejected")) {
+                setConnectionError("Connection rejected in wallet popup. Please approve the prompt to connect.");
+            } else {
+                setConnectionError(`Could not connect to ${option.label}: ${msg}`);
+            }
+        } finally {
+            setConnectingId(null);
+        }
     };
 
     return (
@@ -136,9 +157,10 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                 <button
                     onClick={() => {
                         setMissingWallet(null);
+                        setConnectionError(null);
                         onClose();
                     }}
-                    className="absolute top-5 right-5 text-zinc-400 hover:text-white transition"
+                    className="absolute top-5 right-5 text-zinc-400 hover:text-white transition cursor-pointer"
                 >
                     <X className="w-4 h-4" />
                 </button>
@@ -155,6 +177,19 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                         manage cloud instances.
                     </p>
                 </div>
+
+                {connectionError && (
+                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3 text-xs">
+                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                        <div className="space-y-1 flex-1">
+                            <p className="text-rose-200 font-medium">Connection Failed</p>
+                            <p className="text-zinc-400 text-[11px] leading-relaxed">{connectionError}</p>
+                            <p className="text-emerald-400 text-[11px] pt-1">
+                                Tip: You can also use the <strong>Demo Validator Wallet</strong> above for instant 1-click testing.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {missingWallet && (
                     <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3 text-xs">
@@ -182,11 +217,13 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                 <div className="space-y-2.5">
                     {WALLET_OPTIONS.map((option) => {
                         const Icon = option.IconComponent;
+                        const isThisConnecting = connectingId === option.id;
+
                         return (
                             <button
                                 key={option.id}
                                 onClick={() => handleSelectWallet(option)}
-                                disabled={connecting}
+                                disabled={Boolean(connectingId)}
                                 className={`w-full flex items-center justify-between p-3.5 rounded-xl transition group cursor-pointer disabled:opacity-50 text-left ${
                                     option.isDemo
                                         ? "bg-gradient-to-r from-emerald-950/30 to-purple-950/30 border border-emerald-500/40 hover:border-emerald-400 ring-1 ring-emerald-500/20"
@@ -226,13 +263,20 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                                     </div>
                                 </div>
                                 <span
-                                    className={`text-xs font-mono shrink-0 ml-2 ${
+                                    className={`text-xs font-mono shrink-0 ml-2 flex items-center gap-1.5 ${
                                         option.isDemo
                                             ? "text-emerald-400 font-semibold group-hover:translate-x-0.5 transition-transform"
                                             : "text-zinc-400 group-hover:text-white"
                                     }`}
                                 >
-                                    Connect &rarr;
+                                    {isThisConnecting ? (
+                                        <>
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" />
+                                            <span>Connecting...</span>
+                                        </>
+                                    ) : (
+                                        <span>Connect &rarr;</span>
+                                    )}
                                 </span>
                             </button>
                         );
@@ -249,3 +293,4 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
         </div>
     );
 }
+

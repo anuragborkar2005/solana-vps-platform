@@ -107,9 +107,23 @@ export function OrderListView({
                 <tr>
                   <td
                     colSpan={7}
-                    className="py-8 text-center text-zinc-500 font-mono text-xs"
+                    className="py-12 text-center space-y-3 font-mono"
                   >
-                    No orders found matching filter &quot;{filter}&quot;.
+                    <Server className="w-8 h-8 text-zinc-600 mx-auto" />
+                    <div className="text-zinc-300 font-medium text-sm">No VPS Deployments Found</div>
+                    <p className="text-zinc-500 text-xs max-w-sm mx-auto leading-relaxed">
+                      {filter === "ALL"
+                        ? "This wallet does not have any active or pending server orders yet. Deploy your first autonomous Linux node in under 1 second."
+                        : `No orders found matching filter "${filter}".`}
+                    </p>
+                    <div className="pt-2">
+                      <Button
+                        onClick={onOpenCreateModal}
+                        className="bg-emerald-400 hover:bg-emerald-300 text-zinc-950 font-bold text-xs px-4 py-2 h-9 rounded-xl shadow-md border-0 cursor-pointer"
+                      >
+                        Deploy New VPS Instance
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ) : (
